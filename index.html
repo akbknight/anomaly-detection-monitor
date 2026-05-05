@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Economic Anomaly Detection Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root[data-theme="dark"] {
+      --bg: #0f0f0f;
+      --bg-card: #161616;
+      --bg-surface: #1e1e1e;
+      --border: rgba(255,255,255,0.08);
+      --text: #e5e5e5;
+      --text-2: #a0a0a0;
+      --text-muted: #606060;
+      --accent: #E8A020;
+      --accent-dim: rgba(232,160,32,0.12);
+      --blue: #60a5fa;
+      --blue-dim: rgba(96,165,250,0.12);
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --green: #4ade80;
+      --grid: rgba(255,255,255,0.04);
+    }
+    :root[data-theme="light"] {
+      --bg: #f8f7f4;
+      --bg-card: #ffffff;
+      --bg-surface: #f0efeb;
+      --border: rgba(0,0,0,0.08);
+      --text: #1a1a1a;
+      --text-2: #555;
+      --text-muted: #999;
+      --accent: #c47800;
+      --accent-dim: rgba(196,120,0,0.08);
+      --blue: #1d6fb5;
+      --blue-dim: rgba(29,111,181,0.08);
+      --red: #dc2626;
+      --yellow: #d97706;
+      --green: #16a34a;
+      --grid: rgba(0,0,0,0.04);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      gap: 16px;
+    }
+    .header-left h1 { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+    .header-left p { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+    .badge {
+      display: inline-block;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(232,160,32,0.2);
+      font-size: 10px;
+      font-family: monospace;
+      padding: 2px 8px;
+      border-radius: 100px;
+      margin-top: 6px;
+    }
+    .theme-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .theme-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .kpi-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .kpi-label { font-size: 11px; font-family: monospace; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .kpi-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
+    .kpi-sub { font-size: 11px; color: var(--text-2); margin-top: 4px; }
+    .kpi-value.alert-high { color: var(--red); }
+
+    .section-label { font-size: 11px; font-family: monospace; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .chart-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .chart-subtitle { font-size: 12px; color: var(--text-2); margin-bottom: 20px; }
+    .chart-wrap { position: relative; height: 280px; }
+
+    .legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-2); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .legend-line { width: 18px; height: 2px; flex-shrink: 0; }
+
+    .algo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .algo-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .algo-name { font-size: 12px; font-weight: 700; color: var(--text); font-family: monospace; margin-bottom: 4px; }
+    .algo-desc { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+
+    .anomaly-table { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 28px; }
+    .anomaly-table-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); }
+    .table-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { font-family: monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 10px 20px; text-align: left; border-bottom: 1px solid var(--border); background: var(--bg-surface); font-weight: 500; }
+    td { padding: 10px 20px; color: var(--text-2); border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-surface); color: var(--text); }
+    .date-cell { font-family: monospace; color: var(--text); }
+    .sev-badge { font-family: monospace; font-size: 10px; padding: 2px 8px; border-radius: 100px; display: inline-block; font-weight: 600; }
+    .sev-high { background: rgba(248,113,113,0.12); color: var(--red); }
+    .sev-medium { background: rgba(251,191,36,0.12); color: var(--yellow); }
+    .sev-low { background: rgba(74,222,128,0.12); color: var(--green); }
+    .type-badge { font-family: monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; background: var(--bg-surface); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .series-selector { display: flex; gap: 8px; margin-bottom: 20px; }
+    .series-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2); font-size: 12px; cursor: pointer; transition: all 0.15s; }
+    .series-btn.active-unemployment { background: var(--accent-dim); border-color: rgba(232,160,32,0.3); color: var(--accent); }
+    .series-btn.active-cpi { background: var(--blue-dim); border-color: rgba(96,165,250,0.3); color: var(--blue); }
+
+    footer { border-top: 1px solid var(--border); padding-top: 24px; margin-top: 20px; font-size: 11px; color: var(--text-muted); line-height: 1.8; }
+    footer a { color: var(--text-2); }
+
+    @media (max-width: 600px) {
+      .header-left h1 { font-size: 18px; }
+      th, td { padding: 8px 12px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="header-left">
+      <h1>Economic Anomaly Detection Monitor</h1>
+      <p>Statistical detection of structural breaks in U.S. macroeconomic indicators — Jan 2000 to present</p>
+      <span class="badge">Z-SCORE · IQR · CUSUM · FRED DATA</span>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()">Toggle theme</button>
+  </header>
+
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <div class="series-selector">
+    <button class="series-btn active-unemployment" id="btn-0" onclick="switchSeries(0)">Unemployment Rate (UNRATE)</button>
+    <button class="series-btn" id="btn-1" onclick="switchSeries(1)">Consumer Price Index (CPI)</button>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title" id="chartTitle"></div>
+    <div class="chart-subtitle" id="chartSubtitle"></div>
+    <div class="chart-wrap">
+      <canvas id="mainChart"></canvas>
+    </div>
+    <div class="legend-row">
+      <div class="legend-item">
+        <div class="legend-line" id="seriesLegend" style="background:#E8A020"></div>
+        <span id="seriesLabel">Series value</span>
+      </div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f87171"></div><span>High severity</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fbbf24"></div><span>Medium severity</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#4ade80"></div><span>Low severity</span></div>
+    </div>
+  </div>
+
+  <p class="section-label">Detection Algorithms</p>
+  <div class="algo-grid" id="algoGrid"></div>
+
+  <div class="anomaly-table">
+    <div class="anomaly-table-header">
+      <div class="table-title" id="tableTitle"></div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Value</th><th>Severity</th><th>Algorithm</th><th>Description</th>
+          </tr>
+        </thead>
+        <tbody id="anomalyTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <strong>Data source:</strong> Federal Reserve Bank of St. Louis (FRED) —
+    <a href="https://fred.stlouisfed.org/series/UNRATE" target="_blank">UNRATE</a>,
+    <a href="https://fred.stlouisfed.org/series/CPIAUCSL" target="_blank">CPIAUCSL</a>.
+    Public domain. January 2000 – present.<br>
+    <strong>Algorithms:</strong> Z-score (&gt;2.5&sigma;), IQR (&gt;Q3+2&times;IQR or &lt;Q1&minus;2&times;IQR), CUSUM on first differences (threshold 4&sigma;, reset on alarm).<br>
+    <strong>Built by:</strong> Akshay Kumar &mdash;
+    <a href="https://akbknight.github.io" target="_blank">akbknight.github.io</a>
+  </footer>
+</div>
+
+<script>
+const DATA = {"generated":"2026-05-04","series":[{"meta":{"id":"UNRATE","name":"U.S. Unemployment Rate","units":"Percent (Seasonally Adjusted)","color":"#E8A020","source":"Federal Reserve Bank of St. Louis (FRED)","source_url":"https://fred.stlouisfed.org/series/UNRATE","period":"Jan 2000 – Mar 2026","n_months":314,"latest_value":4.2,"latest_date":"March 2026","mean":5.6541,"std":1.9279},"history":{"dates":["2000-01-01","2000-02-01","2000-03-01","2000-04-01","2000-05-01","2000-06-01","2000-07-01","2000-08-01","2000-09-01","2000-10-01","2000-11-01","2000-12-01","2001-01-01","2001-02-01","2001-03-01","2001-04-01","2001-05-01","2001-06-01","2001-07-01","2001-08-01","2001-09-01","2001-10-01","2001-11-01","2001-12-01","2002-01-01","2002-02-01","2002-03-01","2002-04-01","2002-05-01","2002-06-01","2002-07-01","2002-08-01","2002-09-01","2002-10-01","2002-11-01","2002-12-01","2003-01-01","2003-02-01","2003-03-01","2003-04-01","2003-05-01","2003-06-01","2003-07-01","2003-08-01","2003-09-01","2003-10-01","2003-11-01","2003-12-01","2004-01-01","2004-02-01","2004-03-01","2004-04-01","2004-05-01","2004-06-01","2004-07-01","2004-08-01","2004-09-01","2004-10-01","2004-11-01","2004-12-01","2005-01-01","2005-02-01","2005-03-01","2005-04-01","2005-05-01","2005-06-01","2005-07-01","2005-08-01","2005-09-01","2005-10-01","2005-11-01","2005-12-01","2006-01-01","2006-02-01","2006-03-01","2006-04-01","2006-05-01","2006-06-01","2006-07-01","2006-08-01","2006-09-01","2006-10-01","2006-11-01","2006-12-01","2007-01-01","2007-02-01","2007-03-01","2007-04-01","2007-05-01","2007-06-01","2007-07-01","2007-08-01","2007-09-01","2007-10-01","2007-11-01","2007-12-01","2008-01-01","2008-02-01","2008-03-01","2008-04-01","2008-05-01","2008-06-01","2008-07-01","2008-08-01","2008-09-01","2008-10-01","2008-11-01","2008-12-01","2009-01-01","2009-02-01","2009-03-01","2009-04-01","2009-05-01","2009-06-01","2009-07-01","2009-08-01","2009-09-01","2009-10-01","2009-11-01","2009-12-01","2010-01-01","2010-02-01","2010-03-01","2010-04-01","2010-05-01","2010-06-01","2010-07-01","2010-08-01","2010-09-01","2010-10-01","2010-11-01","2010-12-01","2011-01-01","2011-02-01","2011-03-01","2011-04-01","2011-05-01","2011-06-01","2011-07-01","2011-08-01","2011-09-01","2011-10-01","2011-11-01","2011-12-01","2012-01-01","2012-02-01","2012-03-01","2012-04-01","2012-05-01","2012-06-01","2012-07-01","2012-08-01","2012-09-01","2012-10-01","2012-11-01","2012-12-01","2013-01-01","2013-02-01","2013-03-01","2013-04-01","2013-05-01","2013-06-01","2013-07-01","2013-08-01","2013-09-01","2013-10-01","2013-11-01","2013-12-01","2014-01-01","2014-02-01","2014-03-01","2014-04-01","2014-05-01","2014-06-01","2014-07-01","2014-08-01","2014-09-01","2014-10-01","2014-11-01","2014-12-01","2015-01-01","2015-02-01","2015-03-01","2015-04-01","2015-05-01","2015-06-01","2015-07-01","2015-08-01","2015-09-01","2015-10-01","2015-11-01","2015-12-01","2016-01-01","2016-02-01","2016-03-01","2016-04-01","2016-05-01","2016-06-01","2016-07-01","2016-08-01","2016-09-01","2016-10-01","2016-11-01","2016-12-01","2017-01-01","2017-02-01","2017-03-01","2017-04-01","2017-05-01","2017-06-01","2017-07-01","2017-08-01","2017-09-01","2017-10-01","2017-11-01","2017-12-01","2018-01-01","2018-02-01","2018-03-01","2018-04-01","2018-05-01","2018-06-01","2018-07-01","2018-08-01","2018-09-01","2018-10-01","2018-11-01","2018-12-01","2019-01-01","2019-02-01","2019-03-01","2019-04-01","2019-05-01","2019-06-01","2019-07-01","2019-08-01","2019-09-01","2019-10-01","2019-11-01","2019-12-01","2020-01-01","2020-02-01","2020-03-01","2020-04-01","2020-05-01","2020-06-01","2020-07-01","2020-08-01","2020-09-01","2020-10-01","2020-11-01","2020-12-01","2021-01-01","2021-02-01","2021-03-01","2021-04-01","2021-05-01","2021-06-01","2021-07-01","2021-08-01","2021-09-01","2021-10-01","2021-11-01","2021-12-01","2022-01-01","2022-02-01","2022-03-01","2022-04-01","2022-05-01","2022-06-01","2022-07-01","2022-08-01","2022-09-01","2022-10-01","2022-11-01","2022-12-01","2023-01-01","2023-02-01","2023-03-01","2023-04-01","2023-05-01","2023-06-01","2023-07-01","2023-08-01","2023-09-01","2023-10-01","2023-11-01","2023-12-01","2024-01-01","2024-02-01","2024-03-01","2024-04-01","2024-05-01","2024-06-01","2024-07-01","2024-08-01","2024-09-01","2024-10-01","2024-11-01","2024-12-01","2025-01-01","2025-02-01","2025-03-01","2025-04-01","2025-05-01","2025-06-01","2025-07-01","2025-08-01","2025-09-01","2025-10-01","2025-11-01","2025-12-01","2026-01-01","2026-02-01","2026-03-01"],"values":[4.0,4.1,4.0,3.8,4.0,4.0,4.0,4.1,3.9,3.9,3.9,3.9,4.2,4.2,4.3,4.4,4.3,4.5,4.6,4.9,5.0,5.3,5.5,5.7,5.7,5.7,5.7,5.9,5.8,5.8,5.8,5.7,5.7,5.7,5.9,6.0,5.8,5.9,5.9,6.0,6.1,6.3,6.2,6.1,6.1,6.0,5.9,5.7,5.7,5.6,5.8,5.6,5.6,5.6,5.5,5.4,5.4,5.5,5.4,5.4,5.3,5.4,5.2,5.2,5.1,5.0,5.0,4.9,5.0,5.0,5.0,4.9,4.7,4.8,4.7,4.7,4.6,4.6,4.7,4.7,4.5,4.4,4.5,4.6,4.6,4.5,4.4,4.5,4.5,4.6,4.7,4.7,4.9,4.9,5.0,5.0,5.0,5.4,5.5,5.7,6.1,6.5,6.8,7.3,7.8,8.3,8.7,9.0,9.4,9.5,9.5,9.6,9.8,10.0,10.0,9.9,9.7,9.8,9.9,9.5,9.5,9.3,9.5,9.6,9.6,9.5,9.4,9.8,9.5,9.0,9.1,9.1,9.0,9.1,8.9,8.8,9.0,8.9,8.7,8.5,8.3,8.2,8.2,8.1,8.2,8.1,8.2,8.1,7.8,7.8,7.9,7.7,7.7,7.5,7.5,7.5,7.6,7.6,7.3,7.3,7.2,7.3,7.2,7.0,6.7,6.7,6.6,6.7,6.3,6.1,6.2,6.2,6.2,5.9,5.8,5.8,5.7,5.7,5.6,5.5,5.7,5.5,5.3,5.1,5.0,5.1,5.2,5.1,4.9,4.9,5.0,5.0,4.9,4.8,4.7,4.7,4.9,4.8,4.7,4.9,4.7,4.7,4.4,4.3,4.2,4.4,4.1,4.1,4.0,4.1,4.1,4.0,4.0,4.1,4.1,4.1,4.0,3.9,3.8,3.6,3.7,3.8,3.7,3.6,3.7,3.7,3.5,3.5,3.6,3.5,3.5,3.5,3.5,3.7,3.6,3.8,3.5,3.5,3.5,3.7,4.7,14.8,13.2,11.0,10.2,8.4,7.8,6.7,6.9,6.4,6.7,6.4,5.9,6.0,6.1,5.8,5.9,5.6,5.4,4.8,4.7,4.2,4.6,3.9,4.0,3.9,3.8,3.6,3.6,3.5,3.6,3.5,3.5,3.7,3.5,3.6,3.4,3.4,3.5,3.5,3.4,3.7,3.8,3.5,3.8,3.9,3.7,3.7,3.7,3.9,3.9,3.8,3.7,3.7,3.9,3.7,3.9,4.0,4.0,4.0,3.8,4.1,4.0,4.1,4.2,4.1,4.2,4.3,4.2,4.2,4.1,4.2,4.1,4.1,4.0,4.1,4.0,4.1,4.0,4.1,4.3,4.2,4.2]},"anomalies":[{"date":"2020-04-01","value":14.8,"type":"zscore","score":4.733,"severity":"high","description":"Z-score 4.73 — high deviation from mean"},{"date":"2020-05-01","value":13.2,"type":"zscore","score":3.908,"severity":"high","description":"Z-score 3.91 — high deviation from mean"},{"date":"2020-06-01","value":11.0,"type":"iqr","score":1.533,"severity":"high","description":"IQR outlier — above expected range [0.20, 10.20]"},{"date":"2020-10-01","value":6.9,"type":"cusum","score":4.35,"severity":"low","description":"CUSUM downward regime shift (score 4.4sigma)"}],"counts":{"zscore":3,"iqr":3,"cusum":3,"total_unique":4,"high":3,"medium":0,"low":1}},{"meta":{"id":"CPIAUCSL","name":"Consumer Price Index","units":"Index 1982-84=100 (Seasonally Adjusted)","color":"#60a5fa","source":"Federal Reserve Bank of St. Louis (FRED)","source_url":"https://fred.stlouisfed.org/series/CPIAUCSL","period":"Jan 2000 – Mar 2026","n_months":314,"latest_value":330.293,"latest_date":"March 2026","mean":252.5186,"std":37.8513},"history":{"dates":["2000-01-01","2000-02-01","2000-03-01","2000-04-01","2000-05-01","2000-06-01","2000-07-01","2000-08-01","2000-09-01","2000-10-01","2000-11-01","2000-12-01","2001-01-01","2001-02-01","2001-03-01","2001-04-01","2001-05-01","2001-06-01","2001-07-01","2001-08-01","2001-09-01","2001-10-01","2001-11-01","2001-12-01","2002-01-01","2002-02-01","2002-03-01","2002-04-01","2002-05-01","2002-06-01","2002-07-01","2002-08-01","2002-09-01","2002-10-01","2002-11-01","2002-12-01","2003-01-01","2003-02-01","2003-03-01","2003-04-01","2003-05-01","2003-06-01","2003-07-01","2003-08-01","2003-09-01","2003-10-01","2003-11-01","2003-12-01","2004-01-01","2004-02-01","2004-03-01","2004-04-01","2004-05-01","2004-06-01","2004-07-01","2004-08-01","2004-09-01","2004-10-01","2004-11-01","2004-12-01","2005-01-01","2005-02-01","2005-03-01","2005-04-01","2005-05-01","2005-06-01","2005-07-01","2005-08-01","2005-09-01","2005-10-01","2005-11-01","2005-12-01","2006-01-01","2006-02-01","2006-03-01","2006-04-01","2006-05-01","2006-06-01","2006-07-01","2006-08-01","2006-09-01","2006-10-01","2006-11-01","2006-12-01","2007-01-01","2007-02-01","2007-03-01","2007-04-01","2007-05-01","2007-06-01","2007-07-01","2007-08-01","2007-09-01","2007-10-01","2007-11-01","2007-12-01","2008-01-01","2008-02-01","2008-03-01","2008-04-01","2008-05-01","2008-06-01","2008-07-01","2008-08-01","2008-09-01","2008-10-01","2008-11-01","2008-12-01","2009-01-01","2009-02-01","2009-03-01","2009-04-01","2009-05-01","2009-06-01","2009-07-01","2009-08-01","2009-09-01","2009-10-01","2009-11-01","2009-12-01","2010-01-01","2010-02-01","2010-03-01","2010-04-01","2010-05-01","2010-06-01","2010-07-01","2010-08-01","2010-09-01","2010-10-01","2010-11-01","2010-12-01","2011-01-01","2011-02-01","2011-03-01","2011-04-01","2011-05-01","2011-06-01","2011-07-01","2011-08-01","2011-09-01","2011-10-01","2011-11-01","2011-12-01","2012-01-01","2012-02-01","2012-03-01","2012-04-01","2012-05-01","2012-06-01","2012-07-01","2012-08-01","2012-09-01","2012-10-01","2012-11-01","2012-12-01","2013-01-01","2013-02-01","2013-03-01","2013-04-01","2013-05-01","2013-06-01","2013-07-01","2013-08-01","2013-09-01","2013-10-01","2013-11-01","2013-12-01","2014-01-01","2014-02-01","2014-03-01","2014-04-01","2014-05-01","2014-06-01","2014-07-01","2014-08-01","2014-09-01","2014-10-01","2014-11-01","2014-12-01","2015-01-01","2015-02-01","2015-03-01","2015-04-01","2015-05-01","2015-06-01","2015-07-01","2015-08-01","2015-09-01","2015-10-01","2015-11-01","2015-12-01","2016-01-01","2016-02-01","2016-03-01","2016-04-01","2016-05-01","2016-06-01","2016-07-01","2016-08-01","2016-09-01","2016-10-01","2016-11-01","2016-12-01","2017-01-01","2017-02-01","2017-03-01","2017-04-01","2017-05-01","2017-06-01","2017-07-01","2017-08-01","2017-09-01","2017-10-01","2017-11-01","2017-12-01","2018-01-01","2018-02-01","2018-03-01","2018-04-01","2018-05-01","2018-06-01","2018-07-01","2018-08-01","2018-09-01","2018-10-01","2018-11-01","2018-12-01","2019-01-01","2019-02-01","2019-03-01","2019-04-01","2019-05-01","2019-06-01","2019-07-01","2019-08-01","2019-09-01","2019-10-01","2019-11-01","2019-12-01","2020-01-01","2020-02-01","2020-03-01","2020-04-01","2020-05-01","2020-06-01","2020-07-01","2020-08-01","2020-09-01","2020-10-01","2020-11-01","2020-12-01","2021-01-01","2021-02-01","2021-03-01","2021-04-01","2021-05-01","2021-06-01","2021-07-01","2021-08-01","2021-09-01","2021-10-01","2021-11-01","2021-12-01","2022-01-01","2022-02-01","2022-03-01","2022-04-01","2022-05-01","2022-06-01","2022-07-01","2022-08-01","2022-09-01","2022-10-01","2022-11-01","2022-12-01","2023-01-01","2023-02-01","2023-03-01","2023-04-01","2023-05-01","2023-06-01","2023-07-01","2023-08-01","2023-09-01","2023-10-01","2023-11-01","2023-12-01","2024-01-01","2024-02-01","2024-03-01","2024-04-01","2024-05-01","2024-06-01","2024-07-01","2024-08-01","2024-09-01","2024-10-01","2024-11-01","2024-12-01","2025-01-01","2025-02-01","2025-03-01","2025-04-01","2025-05-01","2025-06-01","2025-07-01","2025-08-01","2025-09-01","2025-10-01","2025-11-01","2025-12-01","2026-01-01","2026-02-01","2026-03-01"],"values":[169.3,169.8,171.2,170.9,171.3,172.4,172.8,172.8,173.7,174.0,174.1,174.0,175.1,175.8,176.2,176.9,177.7,178.0,177.5,177.5,178.3,177.7,177.4,176.7,177.1,177.8,178.8,179.8,179.8,179.8,180.1,180.7,181.0,181.3,181.3,180.9,181.7,183.1,184.2,183.8,183.5,183.7,183.9,184.6,185.2,185.0,184.5,184.3,185.2,186.2,187.4,188.0,189.1,189.7,189.4,189.5,189.9,190.9,191.0,190.3,190.7,191.8,193.3,194.6,194.4,194.5,195.4,196.4,198.8,199.2,197.6,196.8,198.7,199.8,199.8,201.5,202.5,202.9,203.5,203.1,202.9,201.8,201.5,201.8,202.4,203.5,205.4,206.7,208.1,208.5,208.8,208.5,212.2,213.5,215.3,214.8,216.6,218.8,220.0,219.1,218.8,216.6,212.4,210.2,211.1,212.2,212.7,213.2,213.2,213.9,215.4,215.2,215.0,215.7,216.3,215.9,216.3,216.7,217.6,218.6,218.0,218.1,218.3,218.7,219.2,218.4,218.0,218.3,218.8,218.8,219.8,221.1,223.1,224.5,224.9,225.7,225.7,225.4,225.2,224.9,225.1,225.4,226.4,227.1,228.6,230.1,232.8,233.7,234.2,234.7,234.1,233.9,234.1,234.8,234.6,234.9,234.1,233.0,233.7,234.2,234.7,236.3,237.3,237.6,237.7,237.8,237.0,236.6,237.0,236.4,237.2,237.7,237.9,238.0,238.1,238.0,237.9,238.7,237.4,237.9,237.9,238.6,238.3,238.5,239.0,239.3,240.2,240.6,240.6,239.9,238.4,236.5,236.4,235.7,235.7,235.4,235.3,235.6,236.4,236.9,237.7,238.0,239.4,240.0,240.2,241.3,242.2,242.5,243.7,244.0,243.5,244.0,244.5,244.5,245.1,245.1,244.2,244.8,244.6,246.7,247.9,248.6,250.5,251.7,252.0,252.0,252.1,252.8,252.9,252.2,251.2,252.4,253.2,254.1,255.5,256.1,255.7,256.0,256.6,257.2,257.2,257.3,256.6,258.0,258.7,259.1,259.2,258.5,257.2,257.8,256.0,256.7,256.9,257.2,258.5,258.7,258.5,258.7,260.5,261.6,262.2,263.0,263.6,265.2,265.8,265.6,266.6,267.1,267.2,267.5,267.5,268.2,269.7,270.0,270.4,271.0,272.0,273.1,273.5,275.8,277.9,280.1,283.7,284.5,284.8,285.5,288.2,288.6,289.1,291.5,291.0,292.1,293.3,295.6,296.8,296.3,296.9,296.2,296.2,296.1,297.7,299.2,300.5,300.9,301.8,302.7,302.6,303.0,303.7,304.7,305.4,307.0,307.7,308.4,309.2,310.3,311.1,311.7,312.3,313.5,314.2,314.9,315.6,316.5,317.0,317.3,317.7,318.9,319.8,320.9,320.9,321.5,321.8,323.0,323.7,324.6,325.2,325.9,327.0,327.4,328.4,328.2,329.3,329.4,329.6,330.0,330.293]},"anomalies":[{"date":"2008-11-01","value":212.4,"type":"cusum","score":8.94,"severity":"high","description":"CUSUM downward regime shift (score 8.9sigma)"},{"date":"2015-01-01","value":234.747,"type":"cusum","score":5.04,"severity":"medium","description":"CUSUM downward regime shift (score 5.0sigma)"},{"date":"2020-04-01","value":256.032,"type":"cusum","score":4.9,"severity":"low","description":"CUSUM downward regime shift (score 4.9sigma)"},{"date":"2021-06-01","value":270.654,"type":"cusum","score":4.94,"severity":"low","description":"CUSUM upward regime shift (score 4.9sigma)"},{"date":"2021-11-01","value":278.919,"type":"cusum","score":5.32,"severity":"medium","description":"CUSUM upward regime shift (score 5.3sigma)"},{"date":"2022-02-01","value":284.5,"type":"cusum","score":4.04,"severity":"low","description":"CUSUM upward regime shift (score 4.0sigma)"},{"date":"2022-05-01","value":291.298,"type":"cusum","score":5.69,"severity":"medium","description":"CUSUM upward regime shift (score 5.7sigma)"}],"counts":{"zscore":0,"iqr":0,"cusum":7,"total_unique":7,"high":1,"medium":3,"low":3}}]};
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
+}
+
+function el(tag, attrs, children) {
+  const e = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'class') e.className = v;
+    else if (k === 'style') e.style.cssText = v;
+    else e.setAttribute(k, v);
+  });
+  if (children) {
+    if (typeof children === 'string') e.textContent = children;
+    else children.forEach(c => c && e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+  }
+  return e;
+}
+
+// ── Theme ─────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+  redrawAll();
+}
+(function() {
+  const saved = localStorage.getItem('theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
+
+let activeSeriesIdx = 0;
+let mainChart = null;
+
+// ── KPI Cards ─────────────────────────────────────────────────────────────
+function renderKPIs() {
+  const container = document.getElementById('kpiRow');
+  container.textContent = '';
+  let totalAnomalies = 0, highCount = 0;
+  DATA.series.forEach(s => { totalAnomalies += s.counts.total_unique; highCount += s.counts.high; });
+
+  const s0 = DATA.series[0], s1 = DATA.series[1];
+  const kpis = [
+    { label: 'Data Period', value: '26 yrs', sub: 'Jan 2000 – Mar 2026', cls: '' },
+    { label: 'Total Anomalies', value: String(totalAnomalies), sub: 'across both series', cls: '' },
+    { label: 'High Severity', value: String(highCount), sub: `${s0.counts.high} UNRATE · ${s1.counts.high} CPI`, cls: 'alert-high' },
+    { label: 'Latest UNRATE', value: s0.meta.latest_value + '%', sub: s0.meta.latest_date, cls: '' },
+    { label: 'Latest CPI', value: s1.meta.latest_value.toFixed(1), sub: s1.meta.latest_date, cls: '' },
+  ];
+
+  kpis.forEach(k => {
+    const card = el('div', { class: 'kpi-card' }, [
+      el('div', { class: 'kpi-label' }, k.label),
+      el('div', { class: 'kpi-value' + (k.cls ? ' ' + k.cls : '') }, k.value),
+      el('div', { class: 'kpi-sub' }, k.sub),
+    ]);
+    container.appendChild(card);
+  });
+}
+
+// ── Algorithm Cards ───────────────────────────────────────────────────────
+function renderAlgoCards() {
+  const grid = document.getElementById('algoGrid');
+  grid.textContent = '';
+  const algos = [
+    { name: 'Z-Score', desc: 'Flags observations more than 2.5 standard deviations from the series mean. Effective for single-point spikes in stationary series. The COVID unemployment spike of 14.8% in April 2020 registers at 4.7σ.' },
+    { name: 'IQR', desc: 'Flags values outside Q1−2×IQR and Q3+2×IQR. Distribution-free alternative to Z-score, robust to non-normal data. More conservative than Z-score; confirms only the most extreme outliers.' },
+    { name: 'CUSUM', desc: 'Cumulative sum control chart on month-over-month changes. Detects sustained directional regime shifts — e.g. the 2021–2022 inflation acceleration — that Z-score and IQR miss because no single point is extreme.' },
+  ];
+  algos.forEach(a => {
+    const card = el('div', { class: 'algo-card' }, [
+      el('div', { class: 'algo-name' }, a.name),
+      el('div', { class: 'algo-desc' }, a.desc),
+    ]);
+    grid.appendChild(card);
+  });
+}
+
+// ── Chart ─────────────────────────────────────────────────────────────────
+function getCSS(v) {
+  return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+}
+
+function renderChart(idx) {
+  const s = DATA.series[idx];
+  document.getElementById('chartTitle').textContent = s.meta.name;
+  document.getElementById('chartSubtitle').textContent =
+    `${s.meta.units} · ${s.meta.period} · ${s.counts.total_unique} anomalies flagged`;
+  document.getElementById('seriesLegend').style.background = s.meta.color;
+  document.getElementById('seriesLabel').textContent = s.meta.name;
+
+  const anomalyMap = {};
+  s.anomalies.forEach(a => { anomalyMap[a.date] = a; });
+
+  const sevColor = { high: '#f87171', medium: '#fbbf24', low: '#4ade80' };
+  const pointColors = s.history.dates.map(d => anomalyMap[d] ? sevColor[anomalyMap[d].severity] : 'transparent');
+  const pointRadii = s.history.dates.map(d => anomalyMap[d] ? 6 : 0);
+
+  const labels = s.history.dates.map(d => {
+    const dt = new Date(d);
+    return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+  });
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if (mainChart) { mainChart.destroy(); mainChart = null; }
+
+  mainChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: s.meta.name,
+        data: s.history.values,
+        borderColor: s.meta.color,
+        borderWidth: 1.5,
+        pointBackgroundColor: pointColors,
+        pointRadius: pointRadii,
+        pointHoverRadius: s.history.dates.map(d => anomalyMap[d] ? 8 : 0),
+        pointBorderWidth: 0,
+        tension: 0.3,
+        fill: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: getCSS('--bg-card') || '#161616',
+          borderColor: getCSS('--border') || 'rgba(255,255,255,0.08)',
+          borderWidth: 1,
+          titleColor: getCSS('--text') || '#e5e5e5',
+          bodyColor: getCSS('--text-2') || '#a0a0a0',
+          padding: 12,
+          callbacks: {
+            afterBody(items) {
+              const dateKey = s.history.dates[items[0]?.dataIndex];
+              const anomaly = anomalyMap[dateKey];
+              return anomaly ? [`⚠ ${anomaly.severity.toUpperCase()} (${anomaly.type}): ${anomaly.description}`] : [];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: getCSS('--text-muted') || '#606060', font: { size: 10, family: 'monospace' }, maxRotation: 0, maxTicksLimit: 10 },
+          grid: { color: getCSS('--grid') || 'rgba(255,255,255,0.04)' },
+          border: { display: false },
+        },
+        y: {
+          ticks: { color: getCSS('--text-muted') || '#606060', font: { size: 10, family: 'monospace' } },
+          grid: { color: getCSS('--grid') || 'rgba(255,255,255,0.04)' },
+          border: { display: false },
+        }
+      }
+    }
+  });
+}
+
+// ── Anomaly Table ──────────────────────────────────────────────────────────
+function renderTable(idx) {
+  const s = DATA.series[idx];
+  document.getElementById('tableTitle').textContent =
+    `${s.meta.name} — ${s.anomalies.length} Anomaly${s.anomalies.length !== 1 ? 's' : ''} Detected`;
+
+  const tbody = document.getElementById('anomalyTableBody');
+  tbody.textContent = '';
+
+  if (s.anomalies.length === 0) {
+    const row = el('tr', null, [el('td', { colspan: '5', style: 'text-align:center;color:var(--text-muted);padding:20px' }, 'No anomalies detected')]);
+    tbody.appendChild(row);
+    return;
+  }
+
+  s.anomalies.forEach(a => {
+    const dt = new Date(a.date);
+    const label = dt.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+
+    const sevBadge = el('span', { class: `sev-badge sev-${a.severity}` }, a.severity);
+    const typeBadge = el('span', { class: 'type-badge' }, a.type);
+
+    const row = document.createElement('tr');
+    row.appendChild(el('td', { class: 'date-cell' }, label));
+    row.appendChild(el('td', null, a.value.toFixed(1)));
+    const sevTd = document.createElement('td');
+    sevTd.appendChild(sevBadge);
+    row.appendChild(sevTd);
+    const typeTd = document.createElement('td');
+    typeTd.appendChild(typeBadge);
+    row.appendChild(typeTd);
+    row.appendChild(el('td', { style: 'color:var(--text-2);font-size:11px' }, a.description));
+    tbody.appendChild(row);
+  });
+}
+
+// ── Series Switch ──────────────────────────────────────────────────────────
+function switchSeries(idx) {
+  activeSeriesIdx = idx;
+  document.getElementById('btn-0').className = 'series-btn' + (idx === 0 ? ' active-unemployment' : '');
+  document.getElementById('btn-1').className = 'series-btn' + (idx === 1 ? ' active-cpi' : '');
+  renderChart(idx);
+  renderTable(idx);
+}
+
+function redrawAll() { renderChart(activeSeriesIdx); }
+
+// ── Init ───────────────────────────────────────────────────────────────────
+renderKPIs();
+renderAlgoCards();
+switchSeries(0);
+</script>
+</body>
+</html>
