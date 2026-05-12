@@ -1,0 +1,24 @@
+series:
+  - id: UNRATE
+    name: "U.S. Unemployment Rate"
+    units: "Percent (Seasonally Adjusted)"
+    color: "#E8A020"
+    start: "2000-01-01"
+  - id: CPIAUCSL
+    name: "Consumer Price Index"
+    units: "Index 1982-84=100 (Seasonally Adjusted)"
+    color: "#60a5fa"
+    start: "2000-01-01"
+
+detection:
+  zscore:
+    threshold: 2.5
+  iqr:
+    multiplier: 2.0
+  cusum:
+    sigma_threshold: 4.0
+    k_factor: 0.5
+
+output:
+  path: "anomaly_data.json"
+  artifacts_path: "data/artifacts/anomaly_data.json"
